@@ -20,7 +20,11 @@ if (!in_array($_SERVER['REMOTE_ADDR'], $allowedIps)) {
 
 $body = $_POST['payload'];
 
-$redis = new Predis\Client();
+$redis = new Predis\Client(array(
+    'host'       => $_ENV['OPENSHIFT_REDIS_HOST'],
+    'port'       => $_ENV['OPENSHIFT_REDIS_PORT'],
+    'password'   => $_ENV['REDIS_PASSWORD'],
+));
 
 $redis->lpush('dflydev-git-subsplit:incoming', $body);
 

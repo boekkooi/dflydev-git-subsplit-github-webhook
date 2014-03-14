@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+if [[ -e ${OPENSHIFT_REPO_DIR}/maintenance.pid ]]; then
+    echo "Stopping worker."
+    kill -9 `cat ${OPENSHIFT_REPO_DIR}/maintenance.pid`
+    rm -f ${OPENSHIFT_REPO_DIR}/maintenance.pid
+fi

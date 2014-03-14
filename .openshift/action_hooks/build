@@ -1,0 +1,84 @@
+#!/bin/bash
+set -e
+
+function install_composer() {
+    local php_bin=php
+    local pkg=composer.phar
+
+    mkdir -p ${OPENSHIFT_DATA_DIR}/.composer
+    mkdir -p ${OPENSHIFT_DATA_DIR}/bin
+    export COMPOSER_HOME=${OPENSHIFT_DATA_DIR}/.composer
+
+    pushd ${OPENSHIFT_DATA_DIR}/bin/
+
+    if [[ ! -e ${pkg} ]]; then
+        echo "Downloading ${pkg}."
+        wget http://getcomposer.org/${pkg}
+        chmod a+x ${pkg}
+    fi
+
+    echo "Updating ${pkg}."
+    ${php_bin} ${pkg} self-update
+
+    popd
+
+    # Setup vendor dir
+    pushd ${OPENSHIFT_REPO_DIR}/
+    echo "Install vendors."
+    ${php_bin} ${OPENSHIFT_DATA_DIR}/bin/${pkg} -n install -o
+    popd
+}
+
+function install_git() { 
+    if [[ ! -e /sandbox/bin/git ]]; then
+        local pkg=v1.9.0.tar.gz
+
+        pushd ${OPENSHIFT_TMP_DIR}
+
+        echo "Downloading ${pkg}."
+        wget https://github.com/git/git/archive/${pkg}
+
+        echo "Unpacking ${pkg}."
+        tar xfz ${pkg}
+        rm -f ${pkg}
+
+        echo "Compile/Install ${pkg}."
+        pushd "git-1.9.0"
+        make prefix=/sandbox
+        make prefix=/sandbox install
+        popd
+        rm -rf "git-1.9.0"
+
+        echo "Installing git subtree."
+        git clone https://github.com/apenwarr/git-subtree subtree
+        pushd "subtree"
+        cp git-subtree.sh "$(/sandbox/bin/git --exec-path)"/git-subtree
+        popd
+        rm -rf "subtree"
+        
+        echo "Installing git subsplit."
+        git clone https://github.com/dflydev/git-subsplit.git subsplit
+        pushd "subsplit"
+        cp git-subsplit.sh "$(/sandbox/bin/git --exec-path)"/git-subsplit
+        popd
+        rm -rf "subsplit"
+
+        echo "Installing git subtree."
+        git clone https://github.com/apenwarr/git-subtree subtree
+        pushd "subtree"
+        cp git-subtree.sh "$(/sandbox/bin/git --exec-path)"/git-subtree
+        popd
+        rm -rf "subtree"
+
+        popd
+    fi
+}
+
+install_composer
+install_git
+
+# Hack a script to disable ssh known hosts
+if [[ ! -e /sandbox/bin/ssh-openshift ]]; then
+    echo 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $*' > /sandbox/bin/ssh-openshift
+    chmod +x /sandbox/bin/ssh-openshift
+fi

@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+if [[ ! -e ${OPENSHIFT_REPO_DIR}/maintenance.pid ]]; then
+    echo "Starting worker."
+    nohup ssh-agent bash -c "export GIT_SSH='/sandbox/bin/ssh-openshift'; ssh-add ${OPENSHIFT_APP_SSH_KEY}; php ${OPENSHIFT_REPO_DIR}/bin/subsplit-worker.php" > ${OPENSHIFT_PHP_LOG_DIR}/worker.log 2>&1&
+    echo $! > ${OPENSHIFT_REPO_DIR}/maintenance.pid
+fi

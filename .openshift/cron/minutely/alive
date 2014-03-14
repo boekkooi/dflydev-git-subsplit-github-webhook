@@ -1,0 +1,14 @@
+#!/bin/bash
+set -e
+
+if [[ ! -e ${OPENSHIFT_REPO_DIR}/maintenance.pid ]]; then
+    source ${OPENSHIFT_REPO_DIR}/.openshift/action_hooks/post_start_php
+    exit
+fi
+
+pid=`cat ${OPENSHIFT_REPO_DIR}/maintenance.pid`
+pid_res=`ps -o pid --no-heading -p ${pid} | wc -l`
+if [[ "$pid_res" == "0" ]]; then
+    rm -f ${OPENSHIFT_REPO_DIR}/maintenance.pid
+    source ${OPENSHIFT_REPO_DIR}/.openshift/action_hooks/post_start_php
+fi
