@@ -10,7 +10,12 @@ $config = json_decode(file_get_contents($configFilename), true);
 
 $start = time();
 
-$redis = new Predis\Client(array('read_write_timeout' => 0,));
+$redis = new Predis\Client(array(
+    'read_write_timeout' => 0,
+    'host'       => $_ENV['OPENSHIFT_REDIS_HOST'],
+    'port'       => $_ENV['OPENSHIFT_REDIS_PORT'],
+    'password'   => $_ENV['REDIS_PASSWORD'],
+));
 while ($body = $redis->brpoplpush('dflydev-git-subsplit:incoming', 'dflydev-git-subsplit:processing', 0)) {
     $data = json_decode($body, true);
     $name = null;
@@ -42,7 +47,7 @@ while ($body = $redis->brpoplpush('dflydev-git-subsplit:incoming', 'dflydev-git-
     $ref = $data['ref'];
 
     $publishCommand = array(
-        'git subsplit publish',
+        '/sandbox/bin/git subsplit publish',
         escapeshellarg(implode(' ', $project['splits'])),
     );
 
@@ -73,13 +78,17 @@ while ($body = $redis->brpoplpush('dflydev-git-subsplit:incoming', 'dflydev-git-
         mkdir($projectWorkingDirectory, 0750, true);
     }
 
+    $subtreeCacheDirectory = $config['working-directory'].'/'.$name.'/.subsplit/.git/subtree-cache/';
+
     $command = implode(' && ', array(
-        sprintf('cd %s', $projectWorkingDirectory),
-        sprintf('( git subsplit init %s || true )', $repositoryUrl),
-        'git subsplit update',
+        sprintf('cd %s', escapeshellarg($projectWorkingDirectory)),
+        sprintf('( /sandbox/bin/git subsplit init %s || true )', escapeshellarg($repositoryUrl)),
+        '/sandbox/bin/git subsplit update',
+        sprintf('rm -rf %s', escapeshellarg($subtreeCacheDirectory)),
         implode(' ', $publishCommand)
     ));
 
+    print sprintf('Executing `%s`', $command)."\n";
     passthru($command, $exitCode);
 
     if (0 !== $exitCode) {
@@ -92,6 +101,8 @@ while ($body = $redis->brpoplpush('dflydev-git-subsplit:incoming', 'dflydev-git-
 
     $redis->lrem('dflydev-git-subsplit:processing', 1, $body);
     $redis->rpush('dflydev-git-subsplit:processed', json_encode($data));
+
+    print "Processed\n";
 }
 
 $seconds = time() - $start;
